@@ -1,24 +1,31 @@
 package com.foundation.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.dao.CustomerRepository;
+import com.foundation.dao.OutboxRepository;
 import com.foundation.event.CustomerEvent;
 import com.foundation.model.Customer;
+import com.foundation.model.OutboxEvent;
 import org.springframework.stereotype.Service;
+
+import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 
 @Service
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
-    private final CustomerEventProducer eventProducer;
+    private final OutboxRepository outboxRepository;
+    private final ObjectMapper objectMapper;
 
-
-    public CustomerService(CustomerRepository customerRepository, CustomerEventProducer eventProducer) {
+    public CustomerService(CustomerRepository customerRepository, OutboxRepository outboxRepository, ObjectMapper objectMapper) {
         this.customerRepository = customerRepository;
-        this.eventProducer = eventProducer;
+        this.outboxRepository = outboxRepository;
+        this.objectMapper = objectMapper;
     }
 
-    public Customer createCustomer(Customer customer) {
+    @Transactional
+    public Customer createCustomer(Customer customer) throws Exception{
         Customer saved = customerRepository.save(customer);
 
         CustomerEvent event = new CustomerEvent();
@@ -29,7 +36,13 @@ public class CustomerService {
         event.setEventTime(LocalDateTime.now());
 
 
-        eventProducer.publishEvent(event);
+        OutboxEvent outbox = new OutboxEvent();
+        outbox.setEventType("CUSTOMER_CREATED");
+        outbox.setPayload(objectMapper.writeValueAsString(event));
+        outbox.setStatus("NEW");
+        outbox.setCreatedAt(LocalDateTime.now());
+
+        outboxRepository.save(outbox);
 
         return saved;
 

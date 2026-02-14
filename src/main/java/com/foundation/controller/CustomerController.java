@@ -20,6 +20,10 @@ public class CustomerController {
 
     @PostMapping
     public Customer create(@RequestBody Customer customer) {
-        return service.createCustomer(customer);
+        try {
+            return service.createCustomer(customer);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
